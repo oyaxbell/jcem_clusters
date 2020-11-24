@@ -1,0 +1,266 @@
+---
+title: JCEM Letter - Are the Different Diabetes Subgroups Correlated With All-Cause,
+  Cancer-Related, and Cardiovascular-Related Mortality?
+author: Omar Yaxmehen Bello-Chavolla, Neftalí Eduardo Antonio-Villa, Luisa Fernández-Chirino,
+  Arsenio Vargas-Vázquez, Jessica Paola Bahena-López
+date: "23/11/2020"
+output:
+  html_document:
+    highlight: textmate
+    keep_md: yes
+    keep_tex: yes
+    pdf_document: null
+    theme: flatly
+    toc: yes
+    toc_depth: '3'
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/Usuario Lab. Datos/UNIVERSIDAD NACIONAL AUTÓNOMA DE MÉXICO/NEFTALI EDUARDO ANTONIO VILLA - T2D CLUSTERS")
+library(SAScii); library(tidyverse); library(survival); library(ggpubr); library(ggsci)
+nhanes3<-read.csv("nhanes3.csv")
+nhanes3<- nhanes3%>% filter(!is.na(GAPGAD65) & !is.na(C1PSI) & HSAGEIR.x>=20)
+nhanes3$diabetes<-as.numeric((nhanes3$GHP>=6.5 |nhanes3$G1P>=126 | nhanes3$HAD1==1))
+nhanes3fin<- nhanes3 %>% filter(diabetes==1 & (C1PSI!=88888 &  G1PSI!=888888 & GHP!=8888 & BMPBMI!=8888))
+cox.imp<-function(x){
+  var<-summary(pool(x))[1]
+  HR<-exp(summary(pool(x))[2])
+  lwr<-exp(summary(pool(x))[2]-1.96*summary(pool(x))[3])
+  upr<-exp(summary(pool(x))[2]+1.96*summary(pool(x))[3])
+  pval<-summary(pool(x))[6]
+  print(cbind(var,HR, lwr, upr, pval))
+}
+```
+
+## Methods
+
+### Data extraction
+We extracted data from NHANES-III, estimating HOMA2-IR and HOMA2-B using fasting glucose concentrations and C-peptide with the HOMA2-IR calculator from Oxford. We evaluated cases with diabetes defined as previous diagnosis of diabetes HbA1c >6.5% or fasting glucose >126mg/dL, as recommended by ADA. 
+
+```{r eval=FALSE}
+library(SAScii); library(tidyverse); library(survival); library(ggpubr)
+
+#### Download NHANES-III ####  
+download.file("https://wwwn.cdc.gov/nchs/data/nhanes3/24a/ssgad.xpt", tf0 <- tempfile(), mode="wb")
+GAD65 <- foreign::read.xport(tf0)
+#### Household data ###
+download.file("https://wwwn.cdc.gov/nchs/data/nhanes3/1a/adult.dat", tf <- tempfile(), mode="wb")
+nhanes3<-read.SAScii(fn = tf,sas_ri = "https://wwwn.cdc.gov/nchs/data/nhanes3/1a/adult.sas")
+write.csv(nhanes3, "nhanes3.csv")
+
+#### Laboratory data ###
+download.file("https://wwwn.cdc.gov/nchs/data/nhanes3/1a/lab.dat", tf1 <- tempfile(), mode="wb")
+nhanes3_lab<-read.SAScii(fn = tf1,sas_ri = "https://wwwn.cdc.gov/nchs/data/nhanes3/1a/lab.sas")
+write.csv(nhanes3_lab, "nhanes3_lab.csv")
+#### Examination data ###
+download.file("https://wwwn.cdc.gov/nchs/data/nhanes3/1a/exam.dat", tf1 <- tempfile(), mode="wb")
+nhanes3_exam<-read.SAScii(fn = tf1,sas_ri = "https://wwwn.cdc.gov/nchs/data/nhanes3/1a/exam.sas")
+
+#### Merge datasets ###
+library(tidyverse)
+nhanes3_data<- nhanes3_lab %>% left_join(GAD65, by="SEQN")
+nhanes3_data<-nhanes3_data %>% left_join(nhanes3, by="SEQN")
+nhanes3_data<-nhanes3 %>% left_join(nhanes3_exam, by="SEQN")
+
+write.csv(nhanes3_data, "nhanes3.csv")
+
+#### Dataset clusters ####
+nhanes3<-read.csv("nhanes3.csv")
+nhanes3<- nhanes3%>% filter(!is.na(GAPGAD65) & !is.na(C1PSI) & HSAGEIR.x>=20)
+nhanes3$diabetes<-as.numeric((nhanes3$GHP>=6.5 |nhanes3$G1P>=126 | nhanes3$HAD1==1))
+nhanes3fin<- nhanes3 %>% filter(diabetes==1 & (C1PSI!=88888 &  G1PSI!=888888 & GHP!=8888 & BMPBMI!=8888))
+clusters<-nhanes3fin %>% dplyr::select(SEQN,GHP, HAD5R, G1PSI, C1PSI,BMPBMI, HSAGEIR.x,GAPGAD65)
+names(clusters)<-c("SEQN", "HbA1c", "ADD", "GLU", "CPEP", "BMI", "AGE", "GAD65")
+clusters$ADD[is.na(clusters$ADD) | clusters$ADD==999 | clusters$ADD==888]<-clusters$AGE
+cox.imp<-function(x){
+  var<-summary(pool(x))[1]
+  HR<-exp(summary(pool(x))[2])
+  lwr<-exp(summary(pool(x))[2]-1.96*summary(pool(x))[3])
+  upr<-exp(summary(pool(x))[2]+1.96*summary(pool(x))[3])
+  pval<-summary(pool(x))[6]
+  print(cbind(var,HR, lwr, upr, pval))
+}
+```
+
+### Diabetes cluster classification
+
+We used HbA1c, body-mass index (BMI), age at diabetes diagnosis, HOMA2-IR and HOMA2-B to clasify diabetes clusters using the SNNN algorithm previously developed by our team (https://uiem.shinyapps.io/diabetes_clusters_app/). Once we classified these subgroups, we classified severe autoimmune diabetes (SAID) using anti-GAD65 antibodies with values >0.069 indicating positivity. 
+
+
+```{r}
+clust<-read.csv("clusters.csv")
+clust0<-clust%>%select(SEQN, class, HOMA2_B, HOMA2_IR)
+nhanes<-nhanes3fin %>% left_join(clust0, by="SEQN")
+nhanes$Cluster<-as.character(nhanes$class)
+nhanes$Cluster[nhanes$GAPGAD65>=0.069]<-"said"
+table(nhanes$Cluster, nhanes$class)
+nhanes$HAD5R[is.na(nhanes$HAD5R) | nhanes$HAD5R==999 | nhanes$HAD5R==888]<-nhanes$HSAGEIR.x
+
+nhanes$years<-nhanes$HSAGEIR.x-nhanes$HAD5R
+nhanes$recent<-ifelse(nhanes$years<5,1,0)
+nhanes$recent<-factor(nhanes$recent, labels = c("<5 years since diagnosis", ">=5 years since diagnosis"))
+mort<-read.csv("nhanes3_mort.csv")
+mort$SEQN<-mort$seqn
+nhanes0<-nhanes %>% left_join(mort, by="SEQN")
+nhanes0$cluster2<-factor(nhanes0$Cluster, labels = c("MARD", "MOD", "SAID", "SIID", "SIRD"))
+nhanes0$cluster2<-relevel(nhanes0$cluster2, ref="MOD")
+
+## Evaluating diabetes frequencies based on years since diabetes diagnosis
+t1<-table(nhanes0$recent, nhanes0$cluster2)
+knitr::kable(t1, align = "lccrr")
+
+### Plotting cluster frequencies
+df <- nhanes0 %>%
+  group_by(cluster2, recent) %>%
+  summarise(Counts = n()) %>%
+  mutate(freq = Counts / sum(Counts)) %>% drop_na()
+df<-as.data.frame(df)
+df$Counts<-as.numeric(df$Counts);df$freq<-as.numeric(df$freq)
+
+
+ggplot(data=df, aes(y=freq, x=cluster2,fill=cluster2)) +
+  geom_bar(stat="identity", position='dodge')+scale_fill_nejm()+
+  scale_y_continuous(labels = scales::percent_format())+labs(fill="Cluster")+
+  theme_pubr()+ylab("Frequency (%)")+xlab("")+facet_wrap(~recent)+
+  theme(axis.text.x = element_blank(),axis.ticks.x = element_blank())+
+  geom_text(aes(label=round(freq*100,1)), vjust=1.6, color="white", size=3.5)
+```
+
+We identified that the proportion of diabetes subgroups was modified by defining recent vs. non-recent diabetes diagnosis. The profiles of each biomarker are consistent with what is expected for each cluster.
+
+```{r warning=FALSE}
+g1<-ggplot(nhanes0, aes(x=cluster2, y=HOMA2_IR, fill=cluster2))+geom_boxplot()+scale_y_log10()+
+  ylab("HOMA2-IR")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+g2<-ggplot(nhanes0, aes(x=cluster2, y=HOMA2_B, fill=cluster2))+geom_boxplot()+scale_y_log10()+
+  ylab("HOMA2-B")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+g3<-ggplot(nhanes0, aes(x=cluster2, y=GHP, fill=cluster2))+geom_boxplot()+ylab("HbA1c (%)")+
+  xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+g4<-ggplot(nhanes0, aes(x=cluster2, y=G1P, fill=cluster2))+geom_boxplot()+scale_y_log10()+
+  ylab("Glucose (mg/dL)")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+g5<-ggplot(nhanes0, aes(x=cluster2, y=BMPBMI, fill=cluster2))+geom_boxplot()+scale_y_log10()+
+  ylab("BMI (Kg/m2)")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+g6<-ggplot(nhanes0, aes(x=cluster2, y=HAD5R, fill=cluster2))+geom_boxplot()+ylab("Age at diagnosis (years)")+
+  xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+
+ggarrange(g1, g2, g3, g4, g5, g6, labels=LETTERS[1:6])
+
+```
+
+### All-cause mortality
+
+Next, we fitted a Cox proportional risk regression model to predict all-cause mortality. Time of follow-up was estimated from examination until last record. We performed multiple imputation by chained equations using the `mice` R packag with 5 iterations and five multiply imputed datasets. 
+
+```{r, results='hide', message=FALSE}
+nhanes0$mort_cvd_rec<-NULL;
+nhanes0$mort_cvd_rec[nhanes0$ucod_leading==1]<-1;
+nhanes0$mort_cvd_rec[nhanes0$ucod_leading>1]<-2;
+nhanes0$mort_cvd_rec[nhanes0$ucod_leading==0]<-0
+nhanes0$mort_cvd_rec<-na.tools::na.replace(nhanes0$mort_cvd_rec,0)
+
+nhanes0$mort_db_rec<-NULL;
+nhanes0$mort_db_rec[nhanes0$ucod_leading==2]<-1;
+nhanes0$mort_db_rec[nhanes0$ucod_leading!=2]<-2;
+nhanes0$mort_db_rec[nhanes0$ucod_leading==0]<-0
+nhanes0$mort_db_rec<-na.tools::na.replace(nhanes0$mort_db_rec,0)
+
+
+
+nhanes2<-nhanes0 %>% select(cluster2, mortstat, permth_exm, HSSEX.x,DMARACER.x,
+                            HAR3,HAD6,HAD10,HAE5A,HSAGEIR.x,HAE8D,mort_cvd_rec,mort_db_rec, years)
+nhanes2<-nhanes2[!is.na(nhanes2$mortstat) & !is.na(nhanes2$cluster2),]
+nhanes3<-nhanes2 %>%filter(years<=5)
+
+set.seed(123);imp<-mice::mice(nhanes2, maxit=5, m=5)
+set.seed(123);imp2<-mice::mice(nhanes3, maxit=5, m=5)
+```
+
+To account for multiple imputation, we used R pooling function to obtain estimates of all-cause mortality for each cluster, using mild-obesity related diabetes (MOD) as the reference category.
+
+```{r, echo=FALSE}
+#### All cause mortality ####
+library(mice)
+
+### Unadjusted
+
+m1<-with(imp, coxph(Surv(permth_exm, mortstat)~cluster2))
+summary(pool(m1))
+cox.imp(m1)
+
+### Adjusted by sex, race/ethnicity and medications
+m1<-with(imp,coxph(Surv(permth_exm, mortstat)~cluster2+HSSEX.x+DMARACER.x+HAR3+HAD6+HAD10+HAE5A+HAE8D))
+summary(pool(m1))
+cox.imp(m1)
+
+### Adjusted by sex, race/ethnicity, medications and age
+m1<-with(imp,coxph(Surv(permth_exm, mortstat)~cluster2+HSSEX.x+DMARACER.x+HAR3+HAD6+HAD10+HAE5A+HAE8D+HSAGEIR.x))
+summary(pool(m1))
+cox.imp(m1)
+
+```
+
+### Cardiovascular and cancer related mortality
+
+To estimate cause-specific mortality, we fitted semi-parametric Finn & Gray models to account for competing risks using the `survival` R package. We first present results of cardiovascular mortality.
+
+#### Cardiovascular mortality
+
+```{r}
+nhanes2<-nhanes0 %>% select(cluster2, mortstat, permth_exm, HSSEX.x,DMARACER.x,
+                            HAR3,HAD6,HAD10,HAE5A,HSAGEIR.x,HAE8D,mort_cvd_rec,mort_db_rec,ucod_leading)
+nhanes2<-nhanes2[!is.na(nhanes2$mortstat) & !is.na(nhanes2$cluster2) & !is.na(nhanes2$ucod_leading),]
+set.seed(123);imp<-mice::mice(nhanes2, maxit=1, m=1)
+nhanes3<-complete(imp, "long")
+
+nhanes3$mort_cvd_rec<-NULL;
+nhanes3$mort_cvd_rec[nhanes3$ucod_leading==1]<-1;
+nhanes3$mort_cvd_rec[nhanes3$ucod_leading>1]<-2;
+nhanes3$mort_cvd_rec[nhanes3$ucod_leading==0]<-0
+nhanes3$mort_cvd_rec<-na.tools::na.replace(nhanes3$mort_cvd_rec,0)
+nhanes3$cluster2<-factor(nhanes3$cluster2,ordered = F)
+nhanes3$cluster2<-relevel(nhanes3$cluster2, ref="MOD")
+event<- nhanes3$mort_cvd_rec
+event<- factor(event, 0:2, labels=c("censor","CVD","death_other"))
+
+### Unadjusted
+pdata_2 <- finegray(Surv(permth_exm, event) ~ cluster2, data=nhanes3, na.action=na.omit)
+fgfit <- coxph(Surv(fgstart, fgstop, fgstatus) ~ cluster2,weight=fgwt, data=pdata_2)
+summary(fgfit)
+
+### Adjusted
+pdata_2 <- finegray(Surv(permth_exm, event) ~ cluster2+HSSEX.x+DMARACER.x+HAR3+HAD6+HAD10+HAE5A+HSAGEIR.x+HAE8D, data=nhanes3, na.action=na.omit)
+fgfit <- coxph(Surv(fgstart, fgstop, fgstatus) ~ cluster2+HSSEX.x+DMARACER.x+HAD6+HAD10+HAE5A+HSAGEIR.x+HAE8D,weight=fgwt, data=pdata_2)
+summary(fgfit)
+
+```
+
+#### Cancer-related mortality
+
+```{r}
+nhanes0$mort_ca_rec<-NULL;
+nhanes0$mort_ca_rec[nhanes0$ucod_leading==2]<-1;
+nhanes0$mort_ca_rec[nhanes0$ucod_leading!=2]<-2;
+nhanes0$mort_ca_rec[nhanes0$ucod_leading==0]<-0
+nhanes0$mort_ca_rec<-na.tools::na.replace(nhanes0$mort_ca_rec,0)
+
+table(nhanes0$cluster2, nhanes0$mort_ca_rec)
+
+event<- nhanes0$mort_ca_rec
+event<- factor(event, 0:2, labels=c("censor","Cancer","death_other"))
+
+### Adjusted
+pdata_2 <- finegray(Surv(permth_exm, event) ~ cluster2, data=nhanes0, na.action=na.omit)
+fgfit <- coxph(Surv(fgstart, fgstop, fgstatus) ~ cluster2,weight=fgwt, data=pdata_2)
+summary(fgfit)
+
+### Adjusted
+pdata_2 <- finegray(Surv(permth_exm, event) ~ cluster2+HSSEX.x+DMARACER.x+HAR3+HAD6+HAD10+HAE5A+HSAGEIR.x+HAE8D, data=nhanes0, na.action=na.omit)
+fgfit <- coxph(Surv(fgstart, fgstop, fgstatus) ~ cluster2+HSSEX.x+DMARACER.x+HAD6+HAD10+HAE5A+HSAGEIR.x+HAE8D,weight=fgwt, data=pdata_2)
+summary(fgfit)
+```
+
+
