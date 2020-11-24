@@ -4,7 +4,7 @@ navbar:
   title: "JCEM - Letter"
   left:
   - text: "Code"
-   href: jcem_clusters.html
+   href: index.html
 output:
   html_document:
  theme: cosmo
