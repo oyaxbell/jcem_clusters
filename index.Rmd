@@ -4,16 +4,23 @@ title: JCEM Letter - Are the Different Diabetes Subgroups Correlated With All-Ca
 author: Omar Yaxmehen Bello-Chavolla, Neftalí Eduardo Antonio-Villa, Luisa Fernández-Chirino,
   Arsenio Vargas-Vázquez, Jessica Paola Bahena-López
 date: "23/11/2020"
-knit: (function(input_file, encoding) {
-  out_dir <- 'docs';
-  rmarkdown::render(input_file,
- encoding=encoding,
- output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+output:
+  html_document:
+    highlight: textmate
+    keep_md: yes
+    keep_tex: yes
+    pdf_document: null
+    theme: flatly
+    toc: yes
+    toc_depth: '3'
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("C:/Users/Usuario Lab. Datos/UNIVERSIDAD NACIONAL AUTÓNOMA DE MÉXICO/NEFTALI EDUARDO ANTONIO VILLA - T2D CLUSTERS")
 library(SAScii); library(tidyverse); library(survival); library(ggpubr); library(ggsci)
 nhanes3<-read.csv("nhanes3.csv")
 nhanes3<- nhanes3%>% filter(!is.na(GAPGAD65) & !is.na(C1PSI) & HSAGEIR.x>=20)
@@ -127,17 +134,35 @@ We identified that the proportion of diabetes subgroups was modified by defining
 
 ```{r warning=FALSE}
 g1<-ggplot(nhanes0, aes(x=cluster2, y=HOMA2_IR, fill=cluster2))+geom_boxplot()+scale_y_log10()+
-  ylab("HOMA2-IR")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+  ylab("HOMA2-IR")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 g2<-ggplot(nhanes0, aes(x=cluster2, y=HOMA2_B, fill=cluster2))+geom_boxplot()+scale_y_log10()+
-  ylab("HOMA2-B")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+  ylab("HOMA2-B")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 g3<-ggplot(nhanes0, aes(x=cluster2, y=GHP, fill=cluster2))+geom_boxplot()+ylab("HbA1c (%)")+
-  xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+  xlab("Cluster")+theme_classic()+labs(fill="Cluster")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 g4<-ggplot(nhanes0, aes(x=cluster2, y=G1P, fill=cluster2))+geom_boxplot()+scale_y_log10()+
-  ylab("Glucose (mg/dL)")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+  ylab("Glucose (mg/dL)")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 g5<-ggplot(nhanes0, aes(x=cluster2, y=BMPBMI, fill=cluster2))+geom_boxplot()+scale_y_log10()+
-  ylab("BMI (Kg/m2)")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+  ylab("BMI (Kg/m2)")+xlab("Cluster")+theme_classic()+labs(fill="Cluster")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 g6<-ggplot(nhanes0, aes(x=cluster2, y=HAD5R, fill=cluster2))+geom_boxplot()+ylab("Age at diagnosis (years)")+
-  xlab("Cluster")+theme_classic()+labs(fill="Cluster")
+  xlab("Cluster")+theme_classic()+labs(fill="Cluster")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 ggarrange(g1, g2, g3, g4, g5, g6, labels=LETTERS[1:6])
 
