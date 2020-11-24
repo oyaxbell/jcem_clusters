@@ -4,19 +4,11 @@ title: JCEM Letter - Are the Different Diabetes Subgroups Correlated With All-Ca
 author: Omar Yaxmehen Bello-Chavolla, Neftalí Eduardo Antonio-Villa, Luisa Fernández-Chirino,
   Arsenio Vargas-Vázquez, Jessica Paola Bahena-López
 date: "23/11/2020"
-output:
-  html_document:
-    highlight: textmate
-    keep_md: yes
-    keep_tex: yes
-    pdf_document: null
-    theme: flatly
-    toc: yes
-    toc_depth: '3'
-    toc_float: yes
-  pdf_document:
-    toc: yes
-    toc_depth: '3'
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 ---
 
 ```{r setup, include=FALSE, warning=FALSE}
