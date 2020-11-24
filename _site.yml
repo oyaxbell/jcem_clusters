@@ -1,0 +1,10 @@
+name: "JCEM - Letter"
+output_dir: "docs"
+navbar:
+  title: "JCEM - Letter"
+  left:
+  - text: "Code"
+   href: speed-and-distance.html
+output:
+  html_document:
+ theme: cosmo
